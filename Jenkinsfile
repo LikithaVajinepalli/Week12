@@ -4,6 +4,7 @@ pipeline {
     environment {
         PYTHON_HOME = 'C:\\Program Files\\Python312'
         PATH = "${PYTHON_HOME};${PYTHON_HOME}\\Scripts;${env.PATH}"
+        PORT = '5050'
     }
 
     stages {
@@ -13,9 +14,22 @@ pipeline {
                 echo "Running Selenium Tests using pytest"
                 bat 'python -m pip install -r requirements.txt'
                 bat '''
+                    echo ---- Test files found ----
+                    dir /b tests
+
+                    rem Stop any old copy of the app still holding the port
+                    for /f "tokens=5" %%p in ('netstat -ano ^| findstr :%PORT% ^| findstr LISTENING') do taskkill /F /PID %%p
+
                     start /B python app.py
                     ping 127.0.0.1 -n 6 > nul
-                    python -m pytest -v
+
+                    python -m pytest -v tests
+                    set TEST_RESULT=%ERRORLEVEL%
+
+                    rem Stop the app after the tests
+                    for /f "tokens=5" %%p in ('netstat -ano ^| findstr :%PORT% ^| findstr LISTENING') do taskkill /F /PID %%p
+
+                    exit /b %TEST_RESULT%
                 '''
             }
         }
